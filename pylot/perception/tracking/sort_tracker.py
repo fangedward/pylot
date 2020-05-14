@@ -8,7 +8,8 @@ from pylot.perception.tracking.multi_object_tracker import MultiObjectTracker
 
 class MultiObjectSORTTracker(MultiObjectTracker):
     def __init__(self, flags):
-        self.tracker = Sort(min_hits=1, min_iou=flags.min_matching_iou)
+        self.tracker = Sort(max_age=flags.obstacle_track_max_age,
+                            min_hits=1, min_iou=flags.min_matching_iou)
 
     def reinitialize(self, frame, obstacles):
         """ Reinitializes a multiple obstacle tracker.
@@ -18,7 +19,8 @@ class MultiObjectSORTTracker(MultiObjectTracker):
                 Frame to reinitialize with.
             obstacles : List of perception.detection.utils.DetectedObstacle.
         """
-        detections, labels, ids = self.convert_detections_for_sort_alg(obstacles)
+        detections, labels, ids = self.convert_detections_for_sort_alg(
+            obstacles)
         self.tracker.update(detections, labels, ids)
 
     def track(self, frame):
@@ -33,9 +35,14 @@ class MultiObjectSORTTracker(MultiObjectTracker):
         for track in self.tracker.trackers:
             coords = track.predict()[0].tolist()
             # changing to xmin, xmax, ymin, ymax format
-            bbox = BoundingBox2D(int(coords[0]), int(coords[2]),
-                                 int(coords[1]), int(coords[3]))
-            obstacles.append(DetectedObstacle(bbox, 0, track.label, track.id))
+            xmin = int(coords[0])
+            xmax = int(coords[2])
+            ymin = int(coords[1])
+            ymax = int(coords[3])
+            if xmin < xmax and ymin < ymax:
+                bbox = BoundingBox2D(xmin, xmax, ymin, ymax)
+                obstacles.append(
+                    DetectedObstacle(bbox, 0, track.label, track.id))
         return True, obstacles
 
     def convert_detections_for_sort_alg(self, obstacles):
